@@ -70,23 +70,22 @@ local slots = {
     },
 }
 
+local function clearSlot(i)
+    DetachEntity(slots[i].entity)
+    DeleteEntity(slots[i].entity)
+    slots[i].entity = nil
+    slots[i].hash = nil
+    slots[i].wep = nil
+end
+
 local function removeFromSlot(hash)
+    if Weapons[hash] == nil then return end
     local whatItem = Weapons[hash].item
     local count = ox_inventory:Search(2, whatItem)
     for i = 1, #slots do
         if slots[i].hash == hash then
-            if count <= 0 then
-                DetachEntity(slots[i].entity)
-                DeleteEntity(slots[i].entity)
-                slots[i].entity = nil
-                slots[i].hash = nil
-                slots[i].wep = nil
-            elseif hash == curWeapon then
-                DetachEntity(slots[i].entity)
-                DeleteEntity(slots[i].entity)
-                slots[i].entity = nil
-                slots[i].hash = nil
-                slots[i].wep = nil
+            if count <= 0 or hash == curWeapon then
+                clearSlot(i)
             end
         end
     end
@@ -189,10 +188,7 @@ end)
 lib.onCache('vehicle', function(value)
     if value then
         for i = 1, #slots do
-            DetachEntity(slots[i].entity)
-            DeleteEntity(slots[i].entity)
-            slots[i].entity = nil
-            slots[i].hash = nil
+            clearSlot(i)
         end
     else
         for k, v in pairs(Weapons) do
