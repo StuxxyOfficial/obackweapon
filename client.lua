@@ -1,8 +1,10 @@
 local curWeapon = nil
+local ox_inventory = exports.ox_inventory
+local ped = cache.ped
 
 local Weapons = {
     [`weapon_assaultshotgun`] = { object = `w_sg_assaultshotgun`, item = 'WEAPON_ASSAULTSHOTGUN', rot = vector3(0,0,0)},
-    [`weapon_combatpdw`] = { object = `w_sb_pdw`, item = 'WEAPON_COMBATPDW', rot = vector3(0,0,0)},
+    [`WEAPON_COMBATPDW`] = { object = `w_sb_pdw`, item = 'WEAPON_COMBATPDW', rot = vector3(0,0,0)},
     [`weapon_pumpshotgun`] = {object = `w_sg_pumpshotgun`, item = 'WEAPON_PUMPSHOTGUN', rot = vector3(0,0,0)},
     [`weapon_assaultrifle`] = {object = `w_ar_assaultrifle`, item = 'WEAPON_ASSAULTRIFLE', rot = vector3(0,0,0)},
     [`WEAPON_590`] = {object = `w_sg_590`, item = 'WEAPON_590', rot = vector3(0,0,0)},
@@ -48,35 +50,111 @@ local Weapons = {
 }
 
 local slots = {
-
     [1] = {
         pos = vec3(0.13, -0.19, -0.04), -- Center Of Back
         entity = nil,
-        hash = nil
+        hash = nil,
+        wep = nil
     },
     [2] = {
         pos = vec3(0.13, -0.15, -0.16), -- Center-Right
         entity = nil,
-        hash = nil
+        hash = nil,
+        wep = nil
     },
     [3] = {
         pos = vec3(0.13, -0.15, 0.07), -- Center-Left
         entity = nil,
-        hash = nil
+        hash = nil,
+        wep = nil
     },
-
 }
 
+local function removeFromSlot(hash)
+    local whatItem = Weapons[hash].item
+    local count = ox_inventory:Search(2, whatItem)
+    for i = 1, #slots do
+        if slots[i].hash == hash then
+            if count <= 0 then
+                DetachEntity(slots[i].entity)
+                DeleteEntity(slots[i].entity)
+                slots[i].entity = nil
+                slots[i].hash = nil
+                slots[i].wep = nil
+            elseif hash == curWeapon then
+                DetachEntity(slots[i].entity)
+                DeleteEntity(slots[i].entity)
+                slots[i].entity = nil
+                slots[i].hash = nil
+                slots[i].wep = nil
+            end
+        end
+    end
+end
 
+local function removeWeapon(hash)
+    if Weapons[hash] then
+        removeFromSlot(hash)
+    end
+end
+
+local function removeFromInv(hash)
+    removeFromSlot(hash)
+end
+
+local function checkForSlot(hash)
+    for i = 1, #slots do
+        if slots[i].hash == hash then return false end
+    end
+    for i = 1, #slots do
+        local slot = slots[i]
+        if not slot.entity then
+            return i
+        end
+    end
+    return false
+end
+
+local function putOnBack(hash)
+    local whatSlot = checkForSlot(hash)
+    if whatSlot then
+        curWeapon = nil
+        local object = Weapons[hash].object
+        local item = Weapons[hash].item
+        lib.requestModel(object, 500)
+        local coords = GetEntityCoords(ped)
+        local prop = CreateObject(object, coords.x, coords.y, coords.z,  true,  true, true)
+        slots[whatSlot].entity = prop
+        slots[whatSlot].hash = hash
+        slots[whatSlot].wep = item
+        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, 24816), slots[whatSlot].pos.x, slots[whatSlot].pos.y, slots[whatSlot].pos.z, Weapons[hash].rot.x, Weapons[hash].rot.y, Weapons[hash].rot.z, true, true, false, true, 2, true)
+    end
+end
+
+local function respawningCheckWeapon()
+    for i = 1, #slots do
+        local slot = slots[i]
+        if slot.entity ~= nil then
+            if DoesEntityExist(slot.entity) then
+                DeleteEntity(slot.entity)
+            end
+            local whatItem = Weapons[slot.hash].item
+            local count = ox_inventory:Search(2, whatItem)
+            local oldHash = slot.hash
+            slots[i].entity = nil
+            slots[i].hash = nil
+            if count > 0 then
+                putOnBack(oldHash)
+            end
+        end
+    end
+end
 
 AddEventHandler('ox_inventory:currentWeapon', function(data)
     if data then
-        for k, v in pairs (Weapons) do
-            if k == data.hash then
-                print(data.hash)
-                curWeapon = data.hash
-                removeWeapon(data.hash)
-            end
+        if Weapons[data.hash] then
+            curWeapon = data.hash
+            removeWeapon(data.hash)
         end
     else
         if curWeapon then
@@ -85,124 +163,47 @@ AddEventHandler('ox_inventory:currentWeapon', function(data)
     end
 end)
 
-
-function removeWeapon(hash)
-    for k, v in pairs(Weapons) do
-        if hash == k then
-            removeFromSlot(hash)
-        end
-    end
-end
-
-function removeFromInv(hash)
-    removeFromSlot(hash)
-end
-
-function putOnBack(hash)
-    local whatSlot = checkForSlot(hash)
-    if whatSlot then
-        curWeapon = nil
-        local object = Weapons[hash].object
-        if not HasModelLoaded(object) then
-            RequestModel(object)
-            Wait(10)
-        end
-        local coords = GetEntityCoords(PlayerPedId())
-         local prop = CreateObject(object, coords.x, coords.y, coords.z,  true,  true, true)
-        slots[whatSlot].entity = prop
-        slots[whatSlot].hash = hash
-        AttachEntityToEntity(prop, PlayerPedId(), GetPedBoneIndex(PlayerPedId(), 24816), slots[whatSlot].pos.x, slots[whatSlot].pos.y, slots[whatSlot].pos.z, Weapons[hash].rot.x, Weapons[hash].rot.y, Weapons[hash].rot.z, true, true, false, true, 2, true)
-    end
-end
-
-function respawningCheckWeapon()
-    for k, v in pairs(slots) do
-        if v.entity ~= nil then
-            if DoesEntityExist(v.entity) then
-                    DeleteEntity(v.entity)
-            end
-            local whatItem = Weapons[v.hash].item
-            local count = exports.ox_inventory:Search(2, whatItem)
-            local oldHash = v.hash
-            v.entity = nil
-            v.hash = nil
-            if count > 0 then
-                putOnBack(oldHash)
-            end
-        end
-    end
-end
-
-function checkForSlot(hash)
-    local result = nil
-    if not noDupes(hash) then
-        for k, v in pairs(slots) do
-            if not v.entity then
-                result = k
-            end
-        end
-    end
-    return result
-end
-
-function noDupes(hash)
-    local result = false
-    for k, v in pairs(slots) do 
-        if v.hash == hash then
-            result = true
-        end
-    end
-    return result
-end
-
-function removeFromSlot(hash)
-    local whatItem = Weapons[hash].item
-    local count = exports.ox_inventory:Search(2, whatItem)
-    for k, v in pairs(slots) do
-        if v.hash == hash then
-            if count <= 0 then
-                DetachEntity(v.entity)
-                DeleteEntity(v.entity)
-                slots[k].entity = nil
-                slots[k].hash = nil
-            elseif hash == curWeapon then
-                DetachEntity(v.entity)
-                DeleteEntity(v.entity)
-                slots[k].entity = nil
-                slots[k].hash = nil  
-            end
-        end
-    end
-end
-
 AddEventHandler('ox_inventory:updateInventory', function(changes)
-    for k, v in pairs(Weapons) do
-        local count = exports.ox_inventory:Search(2, v.item)
-        if count > 0 and curWeapon == nil then
-            putOnBack(k)
-        else
-            removeFromInv(k)
+    for k, v in pairs(changes) do
+        if type(v) == 'table' then
+            local hash = joaat(v.name)
+            if Weapons[hash] then
+                if curWeapon ~= hash then
+                    putOnBack(hash)
+                else
+                    removeFromInv(hash)
+                end
+            end
+        end
+        if type(v) == 'boolean' then
+            for i = 1, #slots do
+                local count = ox_inventory:Search(2, slots[i].wep)
+                if not count or count <= 0 then
+                    removeFromInv(slots[i].hash)
+                end
+            end
         end
     end
 end)
---working on the next two event handlers to make this thing better
--- lib.onCache('vehicle', function(value)
---     for k, v in pairs(Weapons) do
---         local count = exports.ox_inventory:Search(2, v.item)
---         if value then
---             removeFromInv(k)
---         else
---             putOnBack(k)
---         end
---     end
--- end)
 
+lib.onCache('vehicle', function(value)
+    if value then
+        for i = 1, #slots do
+            DetachEntity(slots[i].entity)
+            DeleteEntity(slots[i].entity)
+            slots[i].entity = nil
+            slots[i].hash = nil
+        end
+    else
+        for k, v in pairs(Weapons) do
+            local count = ox_inventory:Search(2, v.item)
+            if count and count >= 1 then
+                putOnBack(k)
+            end
+        end
+    end
+end)
 
--- AddEventHandler('ox_inventory:updateInventory', function(changes)
---     print(json.encode(changes,{indent=true}))
---     for k, v in pairs(changes) do 
---         if (type(v) == 'table') then print('boolean') return end
---         print(v.name)
---         print(v.count)
---     end
--- end)
+lib.onCache('ped', function(value)
+    ped = value
+end)

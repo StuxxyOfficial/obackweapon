@@ -12,6 +12,10 @@ description   'original code by kallock, being expanded upon by testarossa'
 
 --[[ Manifest ]]--
 
+shared_scripts {
+	'@ox_lib/init.lua'
+}
+
 client_scripts {
 	'client.lua',
 }
