@@ -84,7 +84,7 @@ local function removeFromSlot(hash)
     local count = ox_inventory:Search(2, whatItem)
     for i = 1, #slots do
         if slots[i].hash == hash then
-            if count <= 0 or hash == curWeapon then
+            if not count or count <= 0 or hash == curWeapon then
                 clearSlot(i)
             end
         end
